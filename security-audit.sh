@@ -472,27 +472,206 @@ cleanup_old_reports() {
     fi
 }
 
+# Detectar mejor herramienta de email disponible
+detect_email_tool() {
+    # Verificar msmtp con configuración
+    if command -v msmtp &> /dev/null; then
+        if [[ -f /etc/msmtprc ]] || [[ -f ~/.msmtprc ]] || [[ -f /root/.msmtprc ]]; then
+            echo "msmtp"
+            return 0
+        fi
+    fi
+
+    # Verificar sendmail
+    if command -v sendmail &> /dev/null && [[ -x /usr/sbin/sendmail ]]; then
+        # Verificar si hay un MTA configurado
+        if systemctl is-active --quiet postfix || systemctl is-active --quiet sendmail || systemctl is-active --quiet exim4; then
+            echo "sendmail"
+            return 0
+        fi
+    fi
+
+    # Verificar mailx
+    if command -v mailx &> /dev/null; then
+        echo "mailx"
+        return 0
+    fi
+
+    # Verificar mail
+    if command -v mail &> /dev/null; then
+        echo "mail"
+        return 0
+    fi
+
+    echo "none"
+    return 1
+}
+
 # Test de email
 test_email() {
     log_info "Probando envío de email..."
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════"
+    echo "                    TEST DE CONFIGURACIÓN DE EMAIL            "
+    echo "═══════════════════════════════════════════════════════════════"
+    echo ""
 
-    local subject="${EMAIL_SUBJECT_PREFIX} Test - $(hostname)"
-    local body="Este es un email de prueba desde Security Audit Script.\nFecha: $(date)\nHostname: $(hostname)"
+    # Mostrar configuración actual
+    echo "Configuración actual:"
+    echo "  EMAIL_TO: $EMAIL_TO"
+    echo "  EMAIL_FROM: $EMAIL_FROM"
+    echo "  SMTP_HOST: $SMTP_HOST"
+    echo "  SMTP_PORT: $SMTP_PORT"
+    echo "  SMTP_USER: ${SMTP_USER:-<no configurado>}"
+    echo "  SMTP_TLS: $SMTP_TLS"
+    echo ""
 
-    if command -v mailx &> /dev/null; then
-        echo -e "$body" | mailx -s "$subject" -r "$EMAIL_FROM" "$EMAIL_TO"
-        log_info "Email de prueba enviado via mailx a: $EMAIL_TO"
-    elif command -v mail &> /dev/null; then
-        echo -e "$body" | mail -s "$subject" "$EMAIL_TO"
-        log_info "Email de prueba enviado via mail a: $EMAIL_TO"
-    else
-        log_error "No hay herramienta de email disponible"
+    # Detectar herramienta disponible
+    local email_tool=$(detect_email_tool)
+
+    echo "Detectando herramientas de email disponibles..."
+    echo ""
+
+    if [[ "$email_tool" == "none" ]]; then
+        echo "❌ ERROR: No hay herramientas de email configuradas"
+        echo ""
+        echo "Opciones disponibles:"
+        echo ""
+        echo "1. Instalar y configurar msmtp (RECOMENDADO):"
+        echo "   apt-get install msmtp msmtp-mta"
+        echo "   Luego crear /etc/msmtprc con:"
+        cat <<'MSMTP_CONFIG'
+
+   defaults
+   auth           on
+   tls            on
+   tls_trust_file /etc/ssl/certs/ca-certificates.crt
+   logfile        /var/log/msmtp.log
+
+   account        default
+   host           smtp.gmail.com
+   port           587
+   from           tu-email@gmail.com
+   user           tu-email@gmail.com
+   password       tu-app-password
+
+   chmod 600 /etc/msmtprc
+MSMTP_CONFIG
+        echo ""
+        echo "2. Configurar un MTA local (postfix, sendmail, exim4):"
+        echo "   apt-get install postfix"
+        echo "   dpkg-reconfigure postfix"
+        echo ""
+        echo "3. Instalar mailx:"
+        echo "   apt-get install mailutils"
+        echo ""
         exit 1
     fi
 
-    echo "Email de prueba enviado a: $EMAIL_TO"
-    echo "Verifica tu bandeja de entrada."
-    exit 0
+    echo "✓ Herramienta detectada: $email_tool"
+    echo ""
+
+    # Verificar configuración específica
+    case "$email_tool" in
+        msmtp)
+            echo "Verificando configuración de msmtp..."
+            if msmtp --version &> /dev/null; then
+                echo "✓ msmtp está instalado"
+            fi
+            if msmtp -P 2>&1 | grep -q "account default"; then
+                echo "✓ Cuenta 'default' configurada"
+            else
+                echo "⚠ ADVERTENCIA: Cuenta 'default' no encontrada en configuración"
+            fi
+            ;;
+        sendmail)
+            echo "Verificando MTA local..."
+            if systemctl is-active --quiet postfix; then
+                echo "✓ Postfix está activo"
+            elif systemctl is-active --quiet sendmail; then
+                echo "✓ Sendmail está activo"
+            elif systemctl is-active --quiet exim4; then
+                echo "✓ Exim4 está activo"
+            fi
+            ;;
+        mailx|mail)
+            echo "Usando $email_tool (requiere MTA local o SMTP configurado)"
+            ;;
+    esac
+
+    echo ""
+    echo "Intentando enviar email de prueba..."
+    echo ""
+
+    local subject="${EMAIL_SUBJECT_PREFIX} Test - $(hostname)"
+    local body="Este es un email de prueba desde Security Audit Script.
+Fecha: $(date)
+Hostname: $(hostname)
+Herramienta: $email_tool
+
+Si recibes este email, la configuración está funcionando correctamente.
+
+---
+Security Audit Script v1.0.0"
+
+    local success=false
+
+    case "$email_tool" in
+        msmtp)
+            if echo -e "$body" | msmtp --from="$EMAIL_FROM" "$EMAIL_TO" 2>&1; then
+                success=true
+            else
+                echo "❌ Error al enviar con msmtp"
+                echo ""
+                echo "Verifica la configuración en /etc/msmtprc o ~/.msmtprc"
+                echo "Test manual: echo 'test' | msmtp -a default $EMAIL_TO"
+            fi
+            ;;
+        sendmail)
+            if echo -e "Subject: $subject\nFrom: $EMAIL_FROM\nTo: $EMAIL_TO\n\n$body" | sendmail -t 2>&1; then
+                success=true
+            else
+                echo "❌ Error al enviar con sendmail"
+            fi
+            ;;
+        mailx)
+            if echo -e "$body" | mailx -s "$subject" -r "$EMAIL_FROM" "$EMAIL_TO" 2>&1; then
+                success=true
+            else
+                echo "❌ Error al enviar con mailx"
+            fi
+            ;;
+        mail)
+            if echo -e "$body" | mail -s "$subject" "$EMAIL_TO" 2>&1; then
+                success=true
+            else
+                echo "❌ Error al enviar con mail"
+            fi
+            ;;
+    esac
+
+    echo ""
+    if [[ "$success" == true ]]; then
+        echo "═══════════════════════════════════════════════════════════════"
+        echo "✓ Email de prueba enviado exitosamente"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo ""
+        echo "Destinatario: $EMAIL_TO"
+        echo "Herramienta: $email_tool"
+        echo ""
+        echo "Verifica tu bandeja de entrada (y carpeta de spam)."
+        echo ""
+        exit 0
+    else
+        echo "═══════════════════════════════════════════════════════════════"
+        echo "❌ Error al enviar email de prueba"
+        echo "═══════════════════════════════════════════════════════════════"
+        echo ""
+        echo "Revisa los logs anteriores para más detalles."
+        echo "Verifica la configuración en: /etc/security-audit/config.conf"
+        echo ""
+        exit 1
+    fi
 }
 
 ################################################################################

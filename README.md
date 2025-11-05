@@ -101,14 +101,19 @@ cd security-audit
 # Ejecutar script de instalación como root
 sudo ./install.sh
 
-# Editar configuración (especialmente email y SMTP)
+# Configurar email (IMPORTANTE - ver EMAIL_SETUP.md)
 sudo nano /etc/security-audit/config.conf
 
+# Probar envío de email
+sudo /opt/security-audit/security-audit.sh --test-email
+
 # Ejecutar primera vez manualmente para verificar
-sudo /opt/security-audit/security-audit.sh
+sudo /opt/security-audit/security-audit.sh --no-email
 ```
 
-Ver [INSTALL.md](INSTALL.md) para instrucciones detalladas.
+**Documentación**:
+- [INSTALL.md](INSTALL.md) - Guía detallada de instalación
+- **[EMAIL_SETUP.md](EMAIL_SETUP.md) - Configuración de email (msmtp, Postfix, Gmail, etc.)**
 
 ## Configuración
 
@@ -303,8 +308,10 @@ KNOWN_SUID_FILES="/usr/bin/custom-tool,/opt/app/binary"
 
 ### El email no se envía
 
+**IMPORTANTE**: Ver [EMAIL_SETUP.md](EMAIL_SETUP.md) para una guía completa de configuración de email con múltiples opciones (msmtp, Postfix, Sendmail, etc.)
+
 ```bash
-# Verificar configuración SMTP
+# Verificar configuración SMTP y obtener diagnóstico detallado
 sudo /opt/security-audit/security-audit.sh --test-email
 
 # Verificar que msmtp/mailx está instalado
@@ -315,7 +322,18 @@ grep "email" /var/log/security-audit/security-audit.log
 
 # Probar envío manual con msmtp
 echo "Test" | msmtp -a default your-email@example.com
+
+# Ver logs de msmtp
+tail -f /var/log/msmtp.log
 ```
+
+**Errores comunes**:
+
+- **"account default not found"**: msmtp no está configurado. Crear `/etc/msmtprc` (ver EMAIL_SETUP.md)
+- **"authentication failed"** con Gmail: Usar App Password en lugar de contraseña normal
+- **Email llega a spam**: Configurar SPF/DKIM en tu dominio
+
+Ver documentación completa: [EMAIL_SETUP.md](EMAIL_SETUP.md)
 
 ### El script no se ejecuta en cron
 
