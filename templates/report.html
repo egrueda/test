@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe de Seguridad - {{HOSTNAME}}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .threat-level {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            margin-top: 15px;
+            font-size: 1.1em;
+        }
+
+        .threat-critical {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .threat-high {
+            background-color: #fd7e14;
+            color: white;
+        }
+
+        .threat-medium {
+            background-color: #ffc107;
+            color: #333;
+        }
+
+        .threat-low {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .summary {
+            padding: 30px;
+            background-color: #f8f9fa;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .summary h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+            border-left: 4px solid;
+        }
+
+        .stat-card.critical {
+            border-left-color: #dc3545;
+        }
+
+        .stat-card.high {
+            border-left-color: #fd7e14;
+        }
+
+        .stat-card.medium {
+            border-left-color: #ffc107;
+        }
+
+        .stat-card.low {
+            border-left-color: #28a745;
+        }
+
+        .stat-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .stat-card .label {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+            font-size: 1.6em;
+        }
+
+        .section h3 {
+            color: #764ba2;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .finding {
+            background: #fff;
+            border-left: 5px solid;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .finding.critical {
+            border-left-color: #dc3545;
+            background-color: #fff5f5;
+        }
+
+        .finding.high {
+            border-left-color: #fd7e14;
+            background-color: #fff8f0;
+        }
+
+        .finding.medium {
+            border-left-color: #ffc107;
+            background-color: #fffcf0;
+        }
+
+        .finding.low {
+            border-left-color: #28a745;
+            background-color: #f0fff4;
+        }
+
+        .finding-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .finding-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .severity-badge {
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .severity-badge.critical {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .severity-badge.high {
+            background-color: #fd7e14;
+            color: white;
+        }
+
+        .severity-badge.medium {
+            background-color: #ffc107;
+            color: #333;
+        }
+
+        .severity-badge.low {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .finding-description {
+            margin: 15px 0;
+            color: #555;
+            line-height: 1.8;
+        }
+
+        .finding-evidence {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .finding-recommendation {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 3px solid #0066cc;
+            margin-top: 15px;
+        }
+
+        .finding-recommendation strong {
+            color: #0066cc;
+        }
+
+        .system-info {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .system-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .system-info td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .system-info td:first-child {
+            font-weight: bold;
+            width: 200px;
+            color: #667eea;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        table.data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+
+        table.data-table th {
+            background-color: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        table.data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        table.data-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .footer {
+            background-color: #343a40;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .footer p {
+            margin: 5px 0;
+        }
+
+        .no-findings {
+            text-align: center;
+            padding: 40px;
+            color: #28a745;
+            font-size: 1.2em;
+        }
+
+        .no-findings::before {
+            content: "✓";
+            display: block;
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        .alert-info {
+            background-color: #d1ecf1;
+            border-left: 4px solid #0c5460;
+            color: #0c5460;
+        }
+
+        .alert-warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #856404;
+            color: #856404;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            border-left: 4px solid #721c24;
+            color: #721c24;
+        }
+
+        .recommendations {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .recommendations ol {
+            margin-left: 20px;
+            line-height: 2;
+        }
+
+        .recommendations li {
+            margin-bottom: 10px;
+        }
+
+        @media print {
+            body {
+                background-color: white;
+            }
+
+            .container {
+                box-shadow: none;
+            }
+
+            .finding {
+                page-break-inside: avoid;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .finding-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .severity-badge {
+                margin-top: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🔒 Informe de Seguridad</h1>
+            <div class="subtitle">{{HOSTNAME}}</div>
+            <div class="subtitle">{{DATE}}</div>
+            <div class="threat-level threat-{{THREAT_LEVEL_LOWER}}">
+                Nivel de Amenaza: {{THREAT_LEVEL}}
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary">
+            <h2>📊 Resumen Ejecutivo</h2>
+            <p style="font-size: 1.1em; margin-bottom: 20px;">
+                Este informe contiene el análisis de seguridad realizado en las últimas {{ANALYSIS_HOURS}} horas.
+                Se detectaron un total de <strong>{{TOTAL_FINDINGS}}</strong> hallazgos.
+            </p>
+
+            <div class="stats-grid">
+                <div class="stat-card critical">
+                    <div class="label">Crítico</div>
+                    <div class="number">{{CRITICAL_COUNT}}</div>
+                </div>
+                <div class="stat-card high">
+                    <div class="label">Alto</div>
+                    <div class="number">{{HIGH_COUNT}}</div>
+                </div>
+                <div class="stat-card medium">
+                    <div class="label">Medio</div>
+                    <div class="number">{{MEDIUM_COUNT}}</div>
+                </div>
+                <div class="stat-card low">
+                    <div class="label">Bajo</div>
+                    <div class="number">{{LOW_COUNT}}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- System Information -->
+            <div class="section">
+                <h2>💻 Información del Sistema</h2>
+                <div class="system-info">
+                    <table>
+                        <tr>
+                            <td>Hostname:</td>
+                            <td>{{HOSTNAME}}</td>
+                        </tr>
+                        <tr>
+                            <td>Dirección IP:</td>
+                            <td>{{IP_ADDRESS}}</td>
+                        </tr>
+                        <tr>
+                            <td>Sistema Operativo:</td>
+                            <td>{{OS_INFO}}</td>
+                        </tr>
+                        <tr>
+                            <td>Kernel:</td>
+                            <td>{{KERNEL_VERSION}}</td>
+                        </tr>
+                        <tr>
+                            <td>Uptime:</td>
+                            <td>{{UPTIME}}</td>
+                        </tr>
+                        <tr>
+                            <td>Última Actualización:</td>
+                            <td>{{LAST_UPDATE}}</td>
+                        </tr>
+                        <tr>
+                            <td>Load Average:</td>
+                            <td>{{LOAD_AVERAGE}}</td>
+                        </tr>
+                        <tr>
+                            <td>Uso de Memoria:</td>
+                            <td>{{MEMORY_USAGE}}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Critical Findings -->
+            {{#if HAS_CRITICAL}}
+            <div class="section">
+                <h2>🚨 Hallazgos Críticos</h2>
+                <div class="alert alert-danger">
+                    <strong>¡Atención Inmediata Requerida!</strong>
+                    Se encontraron {{CRITICAL_COUNT}} hallazgos críticos que requieren acción inmediata.
+                </div>
+                {{CRITICAL_FINDINGS}}
+            </div>
+            {{/if}}
+
+            <!-- High Findings -->
+            {{#if HAS_HIGH}}
+            <div class="section">
+                <h2>⚠️ Hallazgos de Severidad Alta</h2>
+                <div class="alert alert-warning">
+                    Se encontraron {{HIGH_COUNT}} hallazgos de severidad alta que deben ser atendidos pronto.
+                </div>
+                {{HIGH_FINDINGS}}
+            </div>
+            {{/if}}
+
+            <!-- Medium Findings -->
+            {{#if HAS_MEDIUM}}
+            <div class="section">
+                <h2>📋 Hallazgos de Severidad Media</h2>
+                {{MEDIUM_FINDINGS}}
+            </div>
+            {{/if}}
+
+            <!-- Low Findings -->
+            {{#if HAS_LOW}}
+            <div class="section">
+                <h2>ℹ️ Hallazgos Informativos</h2>
+                {{LOW_FINDINGS}}
+            </div>
+            {{/if}}
+
+            <!-- No Findings -->
+            {{#if NO_FINDINGS}}
+            <div class="no-findings">
+                <strong>¡Excelente!</strong><br>
+                No se encontraron problemas de seguridad significativos en este análisis.
+            </div>
+            {{/if}}
+
+            <!-- Statistics -->
+            <div class="section">
+                <h2>📈 Estadísticas</h2>
+
+                {{#if HAS_FAILED_IPS}}
+                <h3>Top 10 IPs con Intentos Fallidos</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>IP</th>
+                                <th>Intentos</th>
+                                <th>Servicio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{FAILED_IPS_TABLE}}
+                        </tbody>
+                    </table>
+                </div>
+                {{/if}}
+
+                {{#if HAS_FAILED_USERS}}
+                <h3>Top 10 Usuarios Atacados</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Intentos Fallidos</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{FAILED_USERS_TABLE}}
+                        </tbody>
+                    </table>
+                </div>
+                {{/if}}
+
+                {{#if HAS_ERRORS}}
+                <h3>Resumen de Errores</h3>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Cantidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{ERRORS_TABLE}}
+                        </tbody>
+                    </table>
+                </div>
+                {{/if}}
+            </div>
+
+            <!-- Recommendations -->
+            {{#if HAS_RECOMMENDATIONS}}
+            <div class="section">
+                <h2>💡 Recomendaciones</h2>
+                <div class="recommendations">
+                    <ol>
+                        {{RECOMMENDATIONS_LIST}}
+                    </ol>
+                </div>
+            </div>
+            {{/if}}
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Security Audit Script v1.0.0</strong></p>
+            <p>Generado automáticamente el {{DATE}}</p>
+            <p>Para más información, contacta al equipo de seguridad</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,278 @@
+################################################################################
+# Archivo de Configuración - Security Audit Script
+#
+# IMPORTANTE: Copia este archivo a /etc/security-audit/config.conf
+# y ajusta los valores según tu entorno
+#
+# chmod 600 /etc/security-audit/config.conf  # Permisos restrictivos!
+################################################################################
+
+#------------------------------------------------------------------------------
+# CONFIGURACIÓN DE EMAIL
+#------------------------------------------------------------------------------
+
+# Destinatarios (separados por coma)
+EMAIL_TO="admin@example.com,security@example.com"
+
+# Remitente
+EMAIL_FROM="security-audit@$(hostname -f)"
+
+# Prefijo del asunto
+EMAIL_SUBJECT_PREFIX="[Security Audit]"
+
+#------------------------------------------------------------------------------
+# CONFIGURACIÓN SMTP
+#------------------------------------------------------------------------------
+
+# Servidor SMTP
+SMTP_HOST="smtp.gmail.com"
+
+# Puerto SMTP
+# 25  = SMTP sin encriptación
+# 587 = STARTTLS
+# 465 = SSL/TLS
+SMTP_PORT="587"
+
+# Usuario SMTP (vacío si no requiere autenticación)
+SMTP_USER="your-email@gmail.com"
+
+# Contraseña SMTP (vacío si no requiere autenticación)
+# IMPORTANTE: Para Gmail, usa "App Password" no tu contraseña normal
+# https://support.google.com/accounts/answer/185833
+SMTP_PASSWORD="your-app-password-here"
+
+# Usar TLS (yes/no)
+SMTP_TLS="yes"
+
+#------------------------------------------------------------------------------
+# OPCIONES DE ENVÍO
+#------------------------------------------------------------------------------
+
+# Enviar email solo si hay alertas (yes/no)
+# yes = Enviar solo si hay findings de severidad >= MIN_SEVERITY_TO_SEND
+# no  = Enviar siempre
+SEND_ONLY_ON_ALERTS="yes"
+
+# Severidad mínima para enviar email cuando SEND_ONLY_ON_ALERTS=yes
+# Valores: CRITICAL, HIGH, MEDIUM, LOW
+MIN_SEVERITY_TO_SEND="HIGH"
+
+#------------------------------------------------------------------------------
+# ANÁLISIS DE LOGS
+#------------------------------------------------------------------------------
+
+# Número de horas hacia atrás para analizar logs
+LOG_ANALYSIS_HOURS="24"
+
+# Analizar logs de servidor web (Apache/Nginx) (yes/no)
+ANALYZE_WEB_LOGS="yes"
+
+# Analizar logs de fail2ban (yes/no)
+ANALYZE_FAIL2BAN="yes"
+
+# Verificar indicadores de rootkit (yes/no)
+CHECK_ROOTKIT="yes"
+
+#------------------------------------------------------------------------------
+# UMBRALES DE ALERTAS
+#------------------------------------------------------------------------------
+
+# Número de intentos fallidos SSH para generar alerta
+FAILED_SSH_THRESHOLD="10"
+
+# Umbral de uso de disco para generar alerta (porcentaje)
+DISK_USAGE_THRESHOLD="80"
+
+# Umbral de load average (vacío = número de CPUs)
+# Ejemplo: "4.0" para alertar si load > 4.0
+LOAD_AVERAGE_THRESHOLD=""
+
+# Umbral de uso de memoria (porcentaje)
+MEMORY_USAGE_THRESHOLD="90"
+
+# Número de procesos zombie para alertar
+ZOMBIE_THRESHOLD="5"
+
+#------------------------------------------------------------------------------
+# DIRECTORIOS Y ARCHIVOS
+#------------------------------------------------------------------------------
+
+# Directorio para almacenar informes
+REPORT_DIR="/var/log/security-audit/reports"
+
+# Directorio temporal (se crea y elimina en cada ejecución)
+TEMP_DIR="/tmp/security-audit-$$"
+
+# Archivo de log de la herramienta
+LOG_FILE="/var/log/security-audit/security-audit.log"
+
+#------------------------------------------------------------------------------
+# RETENCIÓN DE DATOS
+#------------------------------------------------------------------------------
+
+# Días de retención de informes históricos
+REPORT_RETENTION_DAYS="90"
+
+# Días de retención de logs de la herramienta
+LOG_RETENTION_DAYS="30"
+
+#------------------------------------------------------------------------------
+# EXCLUSIONES
+#------------------------------------------------------------------------------
+
+# IPs a excluir del análisis de intentos fallidos (separadas por coma)
+# Útil para excluir IPs de monitoreo, VPN, etc.
+EXCLUDE_IPS=""
+
+# Ejemplo:
+# EXCLUDE_IPs="192.168.1.100,10.0.0.50"
+
+# Usuarios a excluir del análisis (separados por coma)
+EXCLUDE_USERS="backup,nagios,zabbix"
+
+# Servicios a excluir del análisis (separados por coma)
+EXCLUDE_SERVICES=""
+
+# Puertos a excluir del análisis de puertos abiertos (separados por coma)
+EXCLUDE_PORTS=""
+
+#------------------------------------------------------------------------------
+# RUTAS PERSONALIZADAS DE LOGS
+#------------------------------------------------------------------------------
+
+# Estas rutas se detectan automáticamente según el OS
+# Solo configurar si están en ubicaciones no estándar
+
+# Log de autenticación
+# Debian: /var/log/auth.log
+# RedHat: /var/log/secure
+#AUTH_LOG="/var/log/auth.log"
+
+# Log del sistema
+# Debian: /var/log/syslog
+# RedHat: /var/log/messages
+#SYSLOG="/var/log/syslog"
+
+# Log del kernel
+#KERNEL_LOG="/var/log/kern.log"
+
+# Directorio de logs de Apache
+#APACHE_LOG_DIR="/var/log/apache2"
+
+# Directorio de logs de Nginx
+#NGINX_LOG_DIR="/var/log/nginx"
+
+# Log de fail2ban
+#FAIL2BAN_LOG="/var/log/fail2ban.log"
+
+#------------------------------------------------------------------------------
+# OPCIONES AVANZADAS
+#------------------------------------------------------------------------------
+
+# Timeout para comandos individuales (segundos)
+COMMAND_TIMEOUT="30"
+
+# Timeout total del script (segundos)
+SCRIPT_TIMEOUT="600"  # 10 minutos
+
+# Prioridad del proceso (nice)
+# Valores: -20 (más prioridad) a 19 (menos prioridad)
+# Usar valores positivos para reducir impacto en el sistema
+PROCESS_PRIORITY="10"
+
+# Modo debug (yes/no)
+# Genera output verbose en los logs
+DEBUG="no"
+
+#------------------------------------------------------------------------------
+# INTEGRACIONES
+#------------------------------------------------------------------------------
+
+# Webhook de Slack (opcional)
+# Si se configura, enviará notificaciones a Slack además del email
+SLACK_WEBHOOK_URL=""
+
+# Ejemplo:
+# SLACK_WEBHOOK_URL="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# Enviar solo alertas críticas a Slack (yes/no)
+SLACK_CRITICAL_ONLY="yes"
+
+# URL de API para enviar JSON report (opcional)
+# Útil para integración con SIEM, Splunk, ELK, etc.
+API_ENDPOINT=""
+
+# Ejemplo:
+# API_ENDPOINT="http://your-logstash:5000"
+
+# API Key para autenticación (opcional)
+API_KEY=""
+
+#------------------------------------------------------------------------------
+# ARCHIVOS SUID/SGID CONOCIDOS
+#------------------------------------------------------------------------------
+
+# Archivos SUID/SGID legítimos (paths completos, separados por coma)
+# Estos archivos NO generarán alertas
+KNOWN_SUID_FILES="/usr/bin/sudo,/usr/bin/passwd,/usr/bin/chsh,/usr/bin/chfn"
+
+#------------------------------------------------------------------------------
+# BASELINE DE SISTEMA
+#------------------------------------------------------------------------------
+
+# Archivo con lista de paquetes instalados para comparación
+# Se genera automáticamente en la primera ejecución
+BASELINE_PACKAGES_FILE="/var/lib/security-audit/baseline-packages.txt"
+
+# Alertar sobre paquetes nuevos instalados (yes/no)
+ALERT_NEW_PACKAGES="no"
+
+# Archivo con lista de usuarios para comparación
+BASELINE_USERS_FILE="/var/lib/security-audit/baseline-users.txt"
+
+# Alertar sobre usuarios nuevos (yes/no)
+ALERT_NEW_USERS="yes"
+
+#------------------------------------------------------------------------------
+# FORMATO DE INFORMES
+#------------------------------------------------------------------------------
+
+# Incluir logs completos en el informe (yes/no)
+# no = Solo incluir resúmenes y estadísticas
+# yes = Incluir extractos de logs relevantes
+INCLUDE_LOG_EXCERPTS="yes"
+
+# Número máximo de líneas de log a incluir por finding
+MAX_LOG_LINES_PER_FINDING="10"
+
+# Incluir recomendaciones en el informe (yes/no)
+INCLUDE_RECOMMENDATIONS="yes"
+
+# Idioma del informe (es/en)
+REPORT_LANGUAGE="es"
+
+#------------------------------------------------------------------------------
+# NOTAS
+#------------------------------------------------------------------------------
+
+# - Las contraseñas se almacenan en texto plano en este archivo
+#   Asegúrate de que los permisos sean 600 (solo lectura para root)
+#
+# - Para Gmail, necesitas crear una "App Password":
+#   1. Habilitar verificación en dos pasos
+#   2. Ir a https://myaccount.google.com/apppasswords
+#   3. Generar una contraseña para "Mail"
+#   4. Usar esa contraseña en SMTP_PASSWORD
+#
+# - Para otros proveedores SMTP:
+#   Gmail: smtp.gmail.com:587 (TLS)
+#   Outlook: smtp-mail.outlook.com:587 (TLS)
+#   Yahoo: smtp.mail.yahoo.com:587 (TLS)
+#   SendGrid: smtp.sendgrid.net:587 (TLS)
+#
+# - Si tienes un servidor SMTP local (postfix, sendmail):
+#   SMTP_HOST="localhost"
+#   SMTP_PORT="25"
+#   SMTP_USER=""
+#   SMTP_PASSWORD=""
+#   SMTP_TLS="no"
