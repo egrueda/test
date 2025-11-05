@@ -174,21 +174,61 @@ install_dependencies() {
 
 # Instalar dependencias opcionales
 install_optional_dependencies() {
-    log_info "¿Desea instalar dependencias opcionales? (rkhunter, lynis, fail2ban)"
-    read -p "Responder [y/N]: " install_optional
+    log_info "Verificando dependencias opcionales..."
+    echo ""
+
+    # Lista de dependencias opcionales
+    local optional_deps=("rkhunter" "lynis" "fail2ban")
+    local installed=()
+    local missing=()
+
+    # Verificar cuáles están instaladas
+    for dep in "${optional_deps[@]}"; do
+        if command -v "$dep" &> /dev/null || dpkg -l "$dep" 2>/dev/null | grep -q "^ii" || rpm -q "$dep" &> /dev/null; then
+            installed+=("$dep")
+        else
+            missing+=("$dep")
+        fi
+    done
+
+    # Mostrar estado
+    echo "Estado de dependencias opcionales:"
+    for dep in "${optional_deps[@]}"; do
+        if [[ " ${installed[@]} " =~ " ${dep} " ]]; then
+            echo "  ✓ $dep - instalado"
+        else
+            echo "  ✗ $dep - no instalado"
+        fi
+    done
+    echo ""
+
+    # Si todas están instaladas, no preguntar
+    if [[ ${#missing[@]} -eq 0 ]]; then
+        log_success "Todas las dependencias opcionales ya están instaladas"
+        return 0
+    fi
+
+    # Si hay algunas instaladas, mostrar mensaje apropiado
+    if [[ ${#installed[@]} -gt 0 ]]; then
+        log_info "Faltan por instalar: ${missing[*]}"
+    fi
+
+    # Preguntar si instalar las faltantes
+    read -p "¿Desea instalar las dependencias opcionales faltantes? [y/N]: " install_optional
 
     if [[ $install_optional =~ ^[Yy]$ ]]; then
+        log_info "Instalando: ${missing[*]}..."
         case $PACKAGE_MANAGER in
             apt-get)
-                apt-get install -y -qq rkhunter lynis fail2ban || log_warn "Algunas dependencias opcionales fallaron"
+                apt-get install -y -qq "${missing[@]}" || log_warn "Algunas dependencias opcionales fallaron"
                 ;;
             dnf|yum)
-                $PACKAGE_MANAGER install -y -q rkhunter lynis fail2ban || log_warn "Algunas dependencias opcionales fallaron"
+                $PACKAGE_MANAGER install -y -q "${missing[@]}" || log_warn "Algunas dependencias opcionales fallaron"
                 ;;
         esac
         log_success "Dependencias opcionales instaladas"
     else
-        log_info "Saltando dependencias opcionales"
+        log_info "Saltando instalación de dependencias opcionales"
     fi
 }
 
