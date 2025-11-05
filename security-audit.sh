@@ -673,10 +673,27 @@ MSMTP_CONFIG
             if msmtp --version &> /dev/null; then
                 echo "✓ msmtp está instalado"
             fi
-            if msmtp -P 2>&1 | grep -q "account default"; then
-                echo "✓ Cuenta 'default' configurada"
+
+            # Verificar archivos de configuración directamente
+            local msmtp_config=""
+            if [[ -f /etc/msmtprc ]]; then
+                msmtp_config="/etc/msmtprc"
+            elif [[ -f ~/.msmtprc ]]; then
+                msmtp_config="~/.msmtprc"
+            elif [[ -f /root/.msmtprc ]]; then
+                msmtp_config="/root/.msmtprc"
+            fi
+
+            if [[ -n "$msmtp_config" ]]; then
+                echo "✓ Archivo de configuración encontrado: $msmtp_config"
+                if grep -q "^account default" "$msmtp_config" 2>/dev/null || \
+                   grep -q "^account.*default" "$msmtp_config" 2>/dev/null; then
+                    echo "✓ Cuenta 'default' configurada"
+                else
+                    echo "⚠ ADVERTENCIA: Cuenta 'default' no encontrada en configuración"
+                fi
             else
-                echo "⚠ ADVERTENCIA: Cuenta 'default' no encontrada en configuración"
+                echo "⚠ ADVERTENCIA: No se encontró archivo de configuración"
             fi
             ;;
         sendmail)
