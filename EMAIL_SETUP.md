@@ -124,13 +124,22 @@ Si funciona, verás el email en tu bandeja de entrada.
 ### Verificar configuración
 
 ```bash
-# Ver configuración (sin mostrar contraseña)
-msmtp -P
+# Ver configuración directamente del archivo
+cat /etc/msmtprc
+# o
+cat ~/.msmtprc
 
-# Debería mostrar algo como:
-# account default
-#   host smtp.gmail.com
-#   ...
+# Alternativamente, verificar con el comando msmtp
+# NOTA: El comando 'msmtp -P' puede bloquearse en algunas configuraciones
+# Es más seguro verificar el archivo directamente
+```
+
+Deberías ver algo como:
+```
+account default
+  host smtp.gmail.com
+  port 587
+  ...
 ```
 
 ## Opción 2: Postfix (MTA Local)
