@@ -41,7 +41,18 @@ log() {
     local message="$*"
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
 
-    echo "[${timestamp}] [${level}] ${message}" | tee -a "${LOG_FILE:-/tmp/security-audit.log}" >&2
+    local log_line="[${timestamp}] [${level}] ${message}"
+
+    # Imprimir a stderr
+    echo "$log_line" >&2
+
+    # Intentar escribir al archivo de log si existe el directorio
+    if [[ -n "${LOG_FILE:-}" ]]; then
+        local log_dir=$(dirname "$LOG_FILE")
+        if [[ -d "$log_dir" ]] || mkdir -p "$log_dir" 2>/dev/null; then
+            echo "$log_line" >> "$LOG_FILE" 2>/dev/null || true
+        fi
+    fi
 }
 
 log_info() { log "INFO" "$@"; }
@@ -202,7 +213,7 @@ check_dependencies() {
     local optional_deps=()
 
     # Dependencias requeridas
-    local required_commands="awk sed grep find ps df netstat"
+    local required_commands="awk sed grep find ps df"
 
     for cmd in $required_commands; do
         if ! command -v "$cmd" &> /dev/null; then
@@ -211,15 +222,15 @@ check_dependencies() {
     done
 
     # Dependencias opcionales
-    if ! command -v ss &> /dev/null; then
-        optional_deps+=("ss (alternativa a netstat)")
+    if ! command -v netstat &> /dev/null && ! command -v ss &> /dev/null; then
+        optional_deps+=("netstat o ss (para análisis de red)")
     fi
 
     if ! command -v mailx &> /dev/null && ! command -v msmtp &> /dev/null && ! command -v sendmail &> /dev/null; then
         optional_deps+=("mailx/msmtp/sendmail (para envío de emails)")
     fi
 
-    if ! command -v rkhunter &> /dev/null && [[ "$CHECK_ROOTKIT" == "yes" ]]; then
+    if ! command -v rkhunter &> /dev/null && [[ "${CHECK_ROOTKIT:-no}" == "yes" ]]; then
         optional_deps+=("rkhunter (para detección de rootkits)")
     fi
 
@@ -333,18 +344,18 @@ run_analysis() {
     local start_time=$(date +%s)
 
     # Si las funciones de las librerías están disponibles, usarlas
-    if command -v analyze_logs &> /dev/null; then
+    if declare -F analyze_logs_main &> /dev/null; then
         log_info "Analizando logs del sistema..."
-        analyze_logs || log_error "Error al analizar logs"
+        analyze_logs_main || log_error "Error al analizar logs"
     else
-        log_warn "Módulo de análisis de logs no disponible"
+        log_info "Módulo de análisis de logs no disponible, saltando..."
     fi
 
-    if command -v check_system &> /dev/null; then
+    if declare -F check_system_main &> /dev/null; then
         log_info "Verificando estado del sistema..."
-        check_system || log_error "Error al verificar sistema"
+        check_system_main || log_error "Error al verificar sistema"
     else
-        log_warn "Módulo de verificación del sistema no disponible"
+        log_info "Módulo de verificación del sistema no disponible, saltando..."
     fi
 
     local end_time=$(date +%s)
@@ -357,10 +368,10 @@ run_analysis() {
 generate_reports() {
     log_info "Generando informes..."
 
-    if command -v generate_reports &> /dev/null; then
-        generate_reports || log_error "Error al generar informes"
+    if declare -F generate_reports_main &> /dev/null; then
+        generate_reports_main || log_error "Error al generar informes"
     else
-        log_warn "Módulo de generación de informes no disponible"
+        log_info "Módulo de generación de informes no disponible, generando informe básico..."
         generate_basic_report
     fi
 }
@@ -410,10 +421,10 @@ send_report_email() {
 
     log_info "Enviando informe por email..."
 
-    if command -v send_email &> /dev/null; then
-        send_email || log_error "Error al enviar email"
+    if declare -F send_email_main &> /dev/null; then
+        send_email_main || log_error "Error al enviar email"
     else
-        log_warn "Módulo de envío de email no disponible"
+        log_info "Módulo de envío de email no disponible, usando método básico..."
         send_basic_email
     fi
 }
