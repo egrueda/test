@@ -482,25 +482,54 @@ detect_email_tool() {
         fi
     fi
 
-    # Verificar sendmail
+    # Verificar si hay un MTA activo (postfix, sendmail, exim4)
+    local mta_active=false
+    if systemctl is-active --quiet postfix 2>/dev/null || \
+       systemctl is-active --quiet sendmail 2>/dev/null || \
+       systemctl is-active --quiet exim4 2>/dev/null; then
+        mta_active=true
+    fi
+
+    # Verificar sendmail con MTA activo
     if command -v sendmail &> /dev/null && [[ -x /usr/sbin/sendmail ]]; then
-        # Verificar si hay un MTA configurado
-        if systemctl is-active --quiet postfix || systemctl is-active --quiet sendmail || systemctl is-active --quiet exim4; then
+        if [[ "$mta_active" == true ]]; then
             echo "sendmail"
             return 0
         fi
     fi
 
-    # Verificar mailx
+    # Verificar mailx - solo si hay un MTA local activo
+    # mailx necesita un backend para funcionar (msmtp, sendmail, etc.)
     if command -v mailx &> /dev/null; then
-        echo "mailx"
-        return 0
+        # Verificar si mailx puede funcionar
+        if [[ "$mta_active" == true ]]; then
+            echo "mailx"
+            return 0
+        fi
+
+        # mailx instalado pero sin backend válido
+        # Verificar qué backend intenta usar
+        local mailx_sendmail=$(mailx -S sendmail 2>&1 | grep -o '/[^ ]*' | head -1)
+        if [[ -n "$mailx_sendmail" ]] && [[ -x "$mailx_sendmail" ]]; then
+            # Tiene un sendmail ejecutable, pero puede ser msmtp sin configurar
+            if [[ "$mailx_sendmail" =~ msmtp ]]; then
+                # mailx usa msmtp pero msmtp no está configurado
+                echo "mailx-broken-msmtp"
+                return 1
+            fi
+        fi
+
+        # mailx sin backend funcional
+        echo "mailx-no-mta"
+        return 1
     fi
 
-    # Verificar mail
+    # Verificar mail básico
     if command -v mail &> /dev/null; then
-        echo "mail"
-        return 0
+        if [[ "$mta_active" == true ]]; then
+            echo "mail"
+            return 0
+        fi
     fi
 
     echo "none"
@@ -532,15 +561,17 @@ test_email() {
     echo "Detectando herramientas de email disponibles..."
     echo ""
 
-    if [[ "$email_tool" == "none" ]]; then
-        echo "❌ ERROR: No hay herramientas de email configuradas"
-        echo ""
-        echo "Opciones disponibles:"
-        echo ""
-        echo "1. Instalar y configurar msmtp (RECOMENDADO):"
-        echo "   apt-get install msmtp msmtp-mta"
-        echo "   Luego crear /etc/msmtprc con:"
-        cat <<'MSMTP_CONFIG'
+    # Manejar casos de error específicos
+    case "$email_tool" in
+        none)
+            echo "❌ ERROR: No hay herramientas de email configuradas"
+            echo ""
+            echo "Opciones disponibles:"
+            echo ""
+            echo "1. Instalar y configurar msmtp (RECOMENDADO):"
+            echo "   apt-get install msmtp msmtp-mta"
+            echo "   Luego crear /etc/msmtprc con:"
+            cat <<'MSMTP_CONFIG'
 
    defaults
    auth           on
@@ -557,16 +588,80 @@ test_email() {
 
    chmod 600 /etc/msmtprc
 MSMTP_CONFIG
-        echo ""
-        echo "2. Configurar un MTA local (postfix, sendmail, exim4):"
-        echo "   apt-get install postfix"
-        echo "   dpkg-reconfigure postfix"
-        echo ""
-        echo "3. Instalar mailx:"
-        echo "   apt-get install mailutils"
-        echo ""
-        exit 1
-    fi
+            echo ""
+            echo "2. Configurar un MTA local (postfix, sendmail, exim4):"
+            echo "   apt-get install postfix"
+            echo "   dpkg-reconfigure postfix"
+            echo ""
+            exit 1
+            ;;
+        mailx-broken-msmtp)
+            echo "❌ ERROR: mailx está configurado para usar msmtp, pero msmtp no está configurado"
+            echo ""
+            echo "Diagnóstico:"
+            echo "  • mailx está instalado ✓"
+            echo "  • mailx intenta usar msmtp como backend"
+            echo "  • msmtp NO está configurado ✗"
+            echo ""
+            echo "Solución 1 - Configurar msmtp (RECOMENDADO):"
+            echo ""
+            echo "  Crear /etc/msmtprc con:"
+            echo ""
+            cat <<'MSMTP_CONFIG'
+  defaults
+  auth           on
+  tls            on
+  tls_trust_file /etc/ssl/certs/ca-certificates.crt
+  logfile        /var/log/msmtp.log
+
+  account        default
+  host           smtp.gmail.com
+  port           587
+  from           tu-email@gmail.com
+  user           tu-email@gmail.com
+  password       tu-app-password
+MSMTP_CONFIG
+            echo ""
+            echo "  Luego:"
+            echo "  chmod 600 /etc/msmtprc"
+            echo ""
+            echo "  Para Gmail, necesitas App Password:"
+            echo "  https://myaccount.google.com/apppasswords"
+            echo ""
+            echo "Solución 2 - Instalar un MTA local:"
+            echo "  apt-get install postfix"
+            echo "  dpkg-reconfigure postfix"
+            echo ""
+            echo "Solución 3 - Usar sendmail directo (si está instalado):"
+            echo "  apt-get install sendmail-bin"
+            echo ""
+            echo "Ver documentación completa: EMAIL_SETUP.md"
+            echo ""
+            exit 1
+            ;;
+        mailx-no-mta)
+            echo "❌ ERROR: mailx instalado pero sin backend de email configurado"
+            echo ""
+            echo "Diagnóstico:"
+            echo "  • mailx está instalado ✓"
+            echo "  • No hay MTA local activo (postfix, sendmail, exim4) ✗"
+            echo "  • msmtp no está configurado ✗"
+            echo ""
+            echo "mailx necesita un backend para enviar emails. Opciones:"
+            echo ""
+            echo "1. Configurar msmtp (RECOMENDADO):"
+            echo "   apt-get install msmtp msmtp-mta"
+            echo "   Crear /etc/msmtprc (ver EMAIL_SETUP.md)"
+            echo ""
+            echo "2. Instalar y configurar Postfix:"
+            echo "   apt-get install postfix"
+            echo "   dpkg-reconfigure postfix"
+            echo ""
+            echo "3. Ver guía completa: EMAIL_SETUP.md"
+            echo ""
+            exit 1
+            ;;
+    esac
 
     echo "✓ Herramienta detectada: $email_tool"
     echo ""
