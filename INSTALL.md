@@ -620,14 +620,63 @@ Para actualizar a una nueva versión:
 cd security-audit
 git pull
 
-# Backup de configuración actual
-sudo cp /etc/security-audit/config.conf /etc/security-audit/config.conf.backup
-
-# Reinstalar
+# Reinstalar (preserva configuración automáticamente)
 sudo ./install.sh
 ```
 
-La configuración existente se preservará.
+**¿Qué sucede durante la actualización?**
+
+1. **Backup automático**: El script detecta si existe `/etc/security-audit/config.conf` y automáticamente crea un backup con timestamp (ej: `config.conf.backup.20241105_120000`)
+
+2. **Preservación de configuración**: Durante la instalación, se te preguntará:
+   ```
+   Se detectó una configuración existente.
+
+   Configuración actual:
+     Email destinatario: admin@example.com
+     Email remitente:    security-audit@server.local
+     Servidor SMTP:      smtp.gmail.com:587
+     Usuario SMTP:       myemail@gmail.com
+     TLS:                yes
+
+   ¿Deseas mantener esta configuración? [Y/n]:
+   ```
+
+3. **Opciones**:
+   - Presiona **Enter** o **Y**: Mantiene toda la configuración existente (recomendado)
+   - Presiona **n**: Te permite reconfigurar todos los parámetros usando los valores anteriores como predeterminados
+
+4. **Scripts actualizados**: Solo se actualizan los scripts en `/opt/security-audit/`, tu configuración en `/etc/security-audit/` permanece intacta
+
+**Ver backups de configuración**:
+
+```bash
+ls -lh /etc/security-audit/config.conf.backup.*
+```
+
+**Restaurar configuración previa**:
+
+```bash
+# Ver diferencias
+diff /etc/security-audit/config.conf /etc/security-audit/config.conf.backup.20241105_120000
+
+# Restaurar si es necesario
+sudo cp /etc/security-audit/config.conf.backup.20241105_120000 /etc/security-audit/config.conf
+```
+
+**Actualización manual de configuración**:
+
+Si prefieres no usar el instalador interactivo:
+
+```bash
+# Actualizar solo los scripts
+cd security-audit
+sudo cp security-audit.sh /opt/security-audit/
+sudo cp -r lib/* /opt/security-audit/lib/
+sudo cp -r templates/* /opt/security-audit/templates/
+
+# Tu configuración en /etc/security-audit/config.conf NO se modifica
+```
 
 ## Desinstalación
 

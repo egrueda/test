@@ -249,12 +249,23 @@ copy_files() {
     # Archivo de configuración de ejemplo
     if [[ -f "$SCRIPT_DIR/config/config.conf.example" ]]; then
         if [[ ! -f "$CONFIG_DIR/config.conf" ]]; then
+            # No hay config previa, crear nueva
             cp "$SCRIPT_DIR/config/config.conf.example" "$CONFIG_DIR/config.conf"
             chmod 600 "$CONFIG_DIR/config.conf"
             log_success "Archivo de configuración creado (debes editarlo)"
+            export CONFIG_EXISTS=false
         else
+            # Hay config previa, hacer backup y actualizar
+            local timestamp=$(date +%Y%m%d_%H%M%S)
+            cp "$CONFIG_DIR/config.conf" "$CONFIG_DIR/config.conf.backup.$timestamp"
+            log_warn "Configuración existente detectada"
+            log_info "Backup guardado: config.conf.backup.$timestamp"
+
+            # Guardar el .example para referencia
             cp "$SCRIPT_DIR/config/config.conf.example" "$CONFIG_DIR/config.conf.example"
-            log_warn "config.conf ya existe, se guardó .example"
+
+            # Marcar que existe config previa
+            export CONFIG_EXISTS=true
         fi
     fi
 }
@@ -347,6 +358,39 @@ EOF
     log_success "Logrotate configurado"
 }
 
+# Leer configuración existente
+read_existing_config() {
+    # Buscar el backup más reciente
+    local backup_file=$(ls -t "$CONFIG_DIR"/config.conf.backup.* 2>/dev/null | head -1)
+
+    local config_file
+    if [[ -n "$backup_file" ]] && [[ -f "$backup_file" ]]; then
+        config_file="$backup_file"
+        log_debug "Leyendo configuración desde backup: $config_file"
+    elif [[ -f "$CONFIG_DIR/config.conf" ]]; then
+        config_file="$CONFIG_DIR/config.conf"
+        log_debug "Leyendo configuración desde: $config_file"
+    else
+        return 1
+    fi
+
+    # Extraer valores (eliminando comillas y espacios)
+    EXISTING_EMAIL_TO=$(grep "^EMAIL_TO=" "$config_file" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//;s/"$//;s/^ *//;s/ *$//')
+    EXISTING_EMAIL_FROM=$(grep "^EMAIL_FROM=" "$config_file" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//;s/"$//;s/^ *//;s/ *$//')
+    EXISTING_SMTP_HOST=$(grep "^SMTP_HOST=" "$config_file" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//;s/"$//;s/^ *//;s/ *$//')
+    EXISTING_SMTP_PORT=$(grep "^SMTP_PORT=" "$config_file" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//;s/"$//;s/^ *//;s/ *$//')
+    EXISTING_SMTP_USER=$(grep "^SMTP_USER=" "$config_file" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//;s/"$//;s/^ *//;s/ *$//')
+    EXISTING_SMTP_PASSWORD=$(grep "^SMTP_PASSWORD=" "$config_file" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//;s/"$//;s/^ *//;s/ *$//')
+    EXISTING_SMTP_TLS=$(grep "^SMTP_TLS=" "$config_file" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//;s/"$//;s/^ *//;s/ *$//')
+
+    # Verificar que al menos se leyó el email
+    if [[ -n "$EXISTING_EMAIL_TO" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
 # Configuración interactiva
 interactive_config() {
     log_info ""
@@ -354,40 +398,87 @@ interactive_config() {
     log_info "             CONFIGURACIÓN DE EMAIL                         "
     log_info "════════════════════════════════════════════════════════════"
     log_info ""
+
+    # Verificar si existe configuración previa
+    local has_existing_config=false
+    if [[ "${CONFIG_EXISTS:-false}" == "true" ]] && read_existing_config; then
+        has_existing_config=true
+        log_info "Se detectó una configuración existente."
+        log_info ""
+        log_info "Configuración actual:"
+        log_info "  Email destinatario: ${EXISTING_EMAIL_TO}"
+        log_info "  Email remitente:    ${EXISTING_EMAIL_FROM}"
+        log_info "  Servidor SMTP:      ${EXISTING_SMTP_HOST}:${EXISTING_SMTP_PORT}"
+        log_info "  Usuario SMTP:       ${EXISTING_SMTP_USER:-<sin configurar>}"
+        log_info "  TLS:                ${EXISTING_SMTP_TLS}"
+        log_info ""
+
+        read -p "¿Deseas mantener esta configuración? [Y/n]: " keep_config
+        if [[ ! $keep_config =~ ^[Nn]$ ]]; then
+            log_success "Manteniendo configuración existente"
+            return 0
+        fi
+        log_info ""
+        log_info "Reconfigurando..."
+    fi
+
     log_info "Por favor, configura los parámetros de email para recibir los informes."
     log_info "Presiona Enter para mantener el valor por defecto mostrado entre [corchetes]"
     log_info ""
 
     # Email destinatario
-    read -p "Email destinatario [root@localhost]: " email_to
-    email_to=${email_to:-root@localhost}
+    local default_email_to="${EXISTING_EMAIL_TO:-root@localhost}"
+    read -p "Email destinatario [$default_email_to]: " email_to
+    email_to=${email_to:-$default_email_to}
 
     # Email remitente
-    local default_from="security-audit@$(hostname -f 2>/dev/null || hostname)"
+    local default_from="${EXISTING_EMAIL_FROM:-security-audit@$(hostname -f 2>/dev/null || hostname)}"
     read -p "Email remitente [$default_from]: " email_from
     email_from=${email_from:-$default_from}
 
     # SMTP Host
-    read -p "Servidor SMTP [localhost]: " smtp_host
-    smtp_host=${smtp_host:-localhost}
+    local default_smtp_host="${EXISTING_SMTP_HOST:-localhost}"
+    read -p "Servidor SMTP [$default_smtp_host]: " smtp_host
+    smtp_host=${smtp_host:-$default_smtp_host}
 
     # SMTP Port
-    read -p "Puerto SMTP [25]: " smtp_port
-    smtp_port=${smtp_port:-25}
+    local default_smtp_port="${EXISTING_SMTP_PORT:-25}"
+    read -p "Puerto SMTP [$default_smtp_port]: " smtp_port
+    smtp_port=${smtp_port:-$default_smtp_port}
 
     # SMTP User
-    read -p "Usuario SMTP (vacío si no requiere auth): " smtp_user
+    local default_smtp_user="${EXISTING_SMTP_USER:-}"
+    if [[ -n "$default_smtp_user" ]]; then
+        read -p "Usuario SMTP [$default_smtp_user]: " smtp_user
+        smtp_user=${smtp_user:-$default_smtp_user}
+    else
+        read -p "Usuario SMTP (vacío si no requiere auth): " smtp_user
+    fi
 
     # SMTP Password
     if [[ -n "$smtp_user" ]]; then
-        read -sp "Contraseña SMTP: " smtp_password
-        echo
+        if [[ -n "${EXISTING_SMTP_PASSWORD:-}" ]] && [[ "$has_existing_config" == "true" ]]; then
+            read -p "¿Mantener contraseña SMTP existente? [Y/n]: " keep_pass
+            if [[ $keep_pass =~ ^[Nn]$ ]]; then
+                read -sp "Nueva contraseña SMTP: " smtp_password
+                echo
+            else
+                smtp_password="$EXISTING_SMTP_PASSWORD"
+            fi
+        else
+            read -sp "Contraseña SMTP: " smtp_password
+            echo
+        fi
     else
         smtp_password=""
     fi
 
     # TLS
-    read -p "Usar TLS? [y/N]: " use_tls
+    local default_tls="${EXISTING_SMTP_TLS:-no}"
+    local tls_prompt="n"
+    [[ "$default_tls" == "yes" ]] && tls_prompt="y"
+    read -p "Usar TLS? [${tls_prompt}/N]: " use_tls
+    use_tls=${use_tls:-$tls_prompt}
     if [[ $use_tls =~ ^[Yy]$ ]]; then
         smtp_tls="yes"
     else
