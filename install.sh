@@ -175,10 +175,9 @@ install_dependencies() {
 # Instalar dependencias opcionales
 install_optional_dependencies() {
     log_info "¿Desea instalar dependencias opcionales? (rkhunter, lynis, fail2ban)"
-    read -p "Responder [y/N]: " -n 1 -r
-    echo
+    read -p "Responder [y/N]: " install_optional
 
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
+    if [[ $install_optional =~ ^[Yy]$ ]]; then
         case $PACKAGE_MANAGER in
             apt-get)
                 apt-get install -y -qq rkhunter lynis fail2ban || log_warn "Algunas dependencias opcionales fallaron"
@@ -537,10 +536,9 @@ test_installation() {
 # Ejecutar test manual
 run_manual_test() {
     log_info ""
-    read -p "¿Deseas ejecutar una prueba manual del script? [Y/n]: " -n 1 -r
-    echo
+    read -p "¿Deseas ejecutar una prueba manual del script? [Y/n]: " run_test
 
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    if [[ ! $run_test =~ ^[Nn]$ ]]; then
         log_info "Ejecutando análisis de prueba..."
         log_info "(Esto puede tomar unos minutos)"
         log_info ""
