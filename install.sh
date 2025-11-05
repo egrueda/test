@@ -366,10 +366,8 @@ read_existing_config() {
     local config_file
     if [[ -n "$backup_file" ]] && [[ -f "$backup_file" ]]; then
         config_file="$backup_file"
-        log_debug "Leyendo configuración desde backup: $config_file"
     elif [[ -f "$CONFIG_DIR/config.conf" ]]; then
         config_file="$CONFIG_DIR/config.conf"
-        log_debug "Leyendo configuración desde: $config_file"
     else
         return 1
     fi
