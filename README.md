@@ -115,6 +115,28 @@ sudo /opt/security-audit/security-audit.sh --no-email
 - [INSTALL.md](INSTALL.md) - Guía detallada de instalación
 - **[EMAIL_SETUP.md](EMAIL_SETUP.md) - Configuración de email (msmtp, Postfix, Gmail, etc.)**
 
+## Desinstalación
+
+Para desinstalar Security Audit del sistema:
+
+```bash
+sudo ./uninstall.sh
+```
+
+El script de desinstalación:
+- Detecta automáticamente los componentes instalados
+- Muestra el espacio en disco a liberar
+- Ofrece crear un backup antes de eliminar (configuración, logs, informes)
+- Pide confirmación antes de proceder
+- Elimina de forma segura todos los componentes:
+  - Scripts y ejecutables
+  - Configuración
+  - Logs e informes
+  - Tareas cron
+  - Configuración de logrotate
+
+También puedes desinstalar manualmente. Consulta [INSTALL.md](INSTALL.md) para más detalles.
+
 ## Configuración
 
 El archivo de configuración principal está en `/etc/security-audit/config.conf`:

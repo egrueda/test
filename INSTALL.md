@@ -680,7 +680,24 @@ sudo cp -r templates/* /opt/security-audit/templates/
 
 ## Desinstalación
 
-Para desinstalar completamente:
+### Método Recomendado: Script Automático
+
+Usa el script de desinstalación que te guiará paso a paso:
+
+```bash
+sudo ./uninstall.sh
+```
+
+El script:
+- Detecta componentes instalados
+- Calcula el espacio a liberar
+- Ofrece hacer backup antes de desinstalar
+- Pide confirmación antes de eliminar
+- Elimina todos los componentes de forma segura
+
+### Método Manual
+
+Si prefieres desinstalar manualmente:
 
 ```bash
 # Eliminar cron
@@ -696,12 +713,13 @@ sudo rm -rf /var/log/security-audit
 sudo rm -rf /var/lib/security-audit
 ```
 
-Para mantener los informes históricos:
-```bash
-# Backup de informes
-sudo cp -r /var/log/security-audit/reports ~/security-audit-reports-backup
+**Nota:** El método manual NO crea backups automáticos. Si deseas conservar tus datos, haz backup manualmente antes:
 
-# Luego desinstalar
+```bash
+# Backup de configuración, logs e informes
+mkdir -p ~/security-audit-backup
+sudo cp -r /etc/security-audit ~/security-audit-backup/config-$(date +%Y%m%d)
+sudo cp -r /var/log/security-audit ~/security-audit-backup/logs-$(date +%Y%m%d)
 ```
 
 ## Soporte
